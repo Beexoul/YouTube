@@ -41,5 +41,3 @@ This simple Python application allows users to download YouTube videos by provid
 4. Choose a download path by clicking the "Choose Path" button.
 5. Click the "Select" button to initiate the download.
 
-
-```
