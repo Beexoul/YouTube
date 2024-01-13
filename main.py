@@ -1,8 +1,8 @@
+import os
 from tkinter import *
-from tkinter import messagebox, filedialog
+from tkinter import ttk, messagebox, filedialog
 from pytube import YouTube
 from threading import Thread
-from tkinter import ttk
 
 class VideoDownloaderApp(Frame):
     def __init__(self, parent):
@@ -14,7 +14,6 @@ class VideoDownloaderApp(Frame):
 
     def init_ui(self):
         self.pack(fill=BOTH, expand=True)
-
         self.create_widgets()
 
     def create_widgets(self):
@@ -38,8 +37,13 @@ class VideoDownloaderApp(Frame):
     def create_buttons(self):
         frame_buttons = Frame(self)
         frame_buttons.pack()
-        Button(frame_buttons, text="Fetch", font="ComicSans 12", command=self.fetch).pack(side=LEFT, padx=10)
-        Button(frame_buttons, text="Choose Path", font="ComicSans 12", command=self.choose_path).pack(side=LEFT)
+
+        fetch_button = Button(frame_buttons, text="Fetch", font="ComicSans 12", command=self.fetch)
+        fetch_button.pack(side=LEFT, padx=10)
+
+        choose_path_button = Button(frame_buttons, text="Choose Path", font="ComicSans 12", command=self.choose_path)
+        choose_path_button.pack(side=LEFT)
+
         self.select_button = Button(frame_buttons, text="Select", font="ComicSans 12", command=self.download_selected)
         self.select_button.pack(side=LEFT)
 
@@ -51,11 +55,16 @@ class VideoDownloaderApp(Frame):
 
     def fetch(self):
         url = self.link.get()
-        yt = YouTube(url)
-        self.videos = yt.streams
+        try:
+            yt = YouTube(url)
+            self.videos = yt.streams
+            self.update_display()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error fetching video: {str(e)}")
 
+    def update_display(self):
         self.display.grid(row=0, column=0, pady=(30, 0))
-        self.select_button.grid(row=1, column=0, pady=10)
+        self.select_button.pack(side=LEFT, pady=10)
         self.parent.geometry("400x400+450+50")
 
         self.display.delete(0, END)
@@ -75,36 +84,35 @@ class VideoDownloaderApp(Frame):
             messagebox.showerror("Error", "Please choose a valid download path.")
             return
 
-        # Create a progress bar frame
+        progress_bar = self.create_progress_bar_frame()
+
+        download_thread = Thread(target=self.download, args=(selected_video, progress_bar))
+        download_thread.start()
+
+    def create_progress_bar_frame(self):
         frame_progress = Frame(self)
         frame_progress.pack()
         progress_bar = ttk.Progressbar(frame_progress, orient=HORIZONTAL, length=100, mode='determinate')
         progress_bar.grid(row=0, column=0, pady=10)
-
-        # Start the download in a separate thread
-        download_thread = Thread(target=self.download, args=(selected_video, progress_bar))
-        download_thread.start()
+        return progress_bar
 
     def download(self, video, progress_bar):
         download_path = self.download_path.get()
         messagebox.showinfo("Downloading", "The video is downloading.")
 
         def update_progress(stream, chunk, remaining):
-            file_size = video.filesize
+            file_size = stream.filesize
             downloaded_size = file_size - remaining
             percent = (downloaded_size / file_size) * 100
             progress_bar['value'] = percent
             self.parent.update_idletasks()
 
-        video.register_on_progress_callback(update_progress)
-
         try:
-            video.download(download_path)
+            video.download(download_path, on_progress=update_progress)
             messagebox.showinfo("Download Complete", "The video has been successfully downloaded.")
         except Exception as e:
             messagebox.showerror("Error", f"Error during download: {str(e)}")
 
-        # Destroy the progress bar frame after download completion
         progress_bar.master.destroy()
 
 if __name__ == '__main__':
